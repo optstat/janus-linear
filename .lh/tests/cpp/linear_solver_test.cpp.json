@@ -1,0 +1,18 @@
+{
+    "sourceFile": "tests/cpp/linear_solver_test.cpp",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1718917823737,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1718917823737,
+            "name": "Commit-0",
+            "content": "#include <gtest/gtest.h>\n#include <torch/torch.h>\n#include <random>\n\n// Test case for zeros method\n/**\n *  g++ -g -std=c++17 tensordual_test.cpp -o dualtest   -I /home/panos/Applications/libtorch/include/torch/csrc/api/include/   -I /home/panos/Applications/libtorch/include/torch/csrc/api/include/torch/   -I /home/panos/Applications/libtorch/include/   -I /usr/local/include/gtest  -L /usr/local/lib   -lgtest  -lgtest_main -L /home/panos/Applications/libtorch/lib/ -ltorch   -ltorch_cpu   -ltorch_cuda   -lc10 -lpthread -Wl,-rpath,/home/panos/Applications/libtorch/lib\n */\n\n// Test case for zeros_like method\nTEST(LUTest, 2dTest) {\n\n    EXPECT_TRUE(true==true);\n}\n\n\n\nint main(int argc, char **argv) {\n    ::testing::InitGoogleTest(&argc, argv);\n    return RUN_ALL_TESTS();\n}\n"
+        }
+    ]
+}
