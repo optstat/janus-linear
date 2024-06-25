@@ -2,7 +2,7 @@
 #define QRTE_HPP_INCLUDED
 
 #include <torch/torch.h>
-#include "janus_util.hpp"
+#include <janus/janus_util.hpp>
 
 namespace janus
 {
@@ -87,18 +87,18 @@ namespace janus
             {
                 Rkek = r.index({Slice(), Slice(k), k});
                 //scale = max(abs(Rkek));
-                auto [scale, scaleindices]=Rkek.abs().max(1);
+                auto [scale, scaleindices]=Rkek.abs().max(1, true);
                 #ifdef DEBUG
                 std::cerr << "At k=" << k << " scale=" << scale << std::endl;
                 #endif
                 r.index_put_({Slice(), Slice(k), k}, r.index({Slice(), Slice(k), k})/ scale);
                 //for (sum=0.0,i=k;i<n;i++) sum += SQR(r[i][k]);
-                auto smsqrt= torch::sum(r.index({Slice(), Slice(k), k}).square(), 1, true);
+                auto smsqrt= torch::sum(r.index({Slice(), Slice(k), k}).square(), 1).sqrt();
                 //sigma=SIGN(sqrt(sum),r[k][k]);
                 r = flip_epsilon(r);
                 //The signcond statement is sensitive to numbers that are negative 
                 //even if they are very small so zero them out before calling signcond
-                sigma = signcond(smsqrt.sqrt(), r.index({Slice(), k, k}));
+                sigma = signcond(smsqrt, r.index({Slice(), k, k}));
                 #ifdef DEBUG
                 std::cerr << "smsqrt=";
                 janus::print_tensor(smsqrt);
@@ -115,7 +115,7 @@ namespace janus
                 //std::cerr << "sigma=";
                 //janus::print_tensor(sigma);
                 #endif
-                d.index_put_({Slice(), k}, -scale * sigma);
+                d.index_put_({Slice(), k}, scale.squeeze(1)*sigma);
                 #ifdef DEBUG
                 std::cerr <<"At the end of outer loop k=" << k << std::endl;
                 std::cerr << "d=";
@@ -145,7 +145,7 @@ namespace janus
                         std::cerr << "tau=" << tau << std::endl;
                         throw std::runtime_error("tau has nan or inf");
                     }
-                    r.index_put_({Slice(), Slice(k), j}, r.index({Slice(), Slice(k), j}) - tau * r.index({Slice(), Slice(k), k}));
+                    r.index_put_({Slice(), Slice(k), j}, r.index({Slice(), Slice(k), j}) - tau.unsqueeze(1) * r.index({Slice(), Slice(k), k}));
                     #ifdef DEBUG
                     //std::cerr << "r at k=" << k << " j=" << j;
                     //print_tensor(r);
@@ -209,9 +209,9 @@ namespace janus
                 {
                     for (int j = 0; j <= n-1; j++)
                     {
-                      auto sm = torch::sum(r.index({mask, Slice(k), k}) * qt.index({mask, Slice(k), j}), 1); 
+                      auto sm = torch::sum(r.index({mask, Slice(k), k}) * qt.index({mask, Slice(k), j}), 1, true); 
                     
-                      sm = sm / c.index({mask, k});
+                      sm = sm / (c.index({mask, k}).unsqueeze(1));
                       qt.index_put_({mask, Slice(k), j}, qt.index({mask, Slice(k), j}) - 
                                                             sm * r.index({mask, Slice(k), k}));
                     }

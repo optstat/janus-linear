@@ -4,7 +4,7 @@
 //     return torch.where(b >= 0, torch.where(a >= 0, a, -a), torch.where(a >= 0, -a, a))
 
 #include <torch/torch.h>
-#include "janus/janus_util.hpp"
+#include <janus/janus_util.hpp>
 
 
 using Slice = torch::indexing::Slice;
