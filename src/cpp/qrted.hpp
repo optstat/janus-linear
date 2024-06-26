@@ -2,14 +2,19 @@
 #define QRTED_HPP_INCLUDED
 
 #include <torch/torch.h>
-#include "tensordual.hpp"
+#include <janus/tensordual.hpp>
+
+namespace janus 
+{
+
 
 // Translated signcond function
-TensorDual signcond(const TensorDual& a, const TensorDual& b) {
+/*TensorDual signcond(const TensorDual& a, const TensorDual& b) 
+{
     return TensorDual::where(b.r >= 0,
                              TensorDual::where(a.r >= 0, a, -a),
                              TensorDual::where(a.r >= 0, -a, a));
-}
+}*/
 
 
 using Slice = torch::indexing::Slice;
@@ -17,7 +22,8 @@ using Slice = torch::indexing::Slice;
 
 
 
-class QRTeD {
+class QRTeD 
+{
 private:
 
 
@@ -201,9 +207,73 @@ public:
         return qtx;
 
     }
+    
+    static TensorDual solvev(const TensorMatDual& qt, const TensorMatDual& r, const TensorDual& b) {
+        //qtx = self.qt*b
+        auto qtx = qt * b;
+        int D = qt.r.size(1);
+        //std::cerr << "qtx: " << qtx << std::endl;
+        //for i in range(self.D-1, -1, -1):
+        for (int i = D - 1; i >= 0; --i) {
+            //sm = TensorDual(qtx.r[:, i:i+1], qtx.d[:, i:i+1,:])
+            TensorDual sm(qtx.r.index({Slice(), Slice(i, i + 1)}),
+                          qtx.d.index({Slice(), Slice(i, i + 1)}));
+            // if i+1 < self.D:
+            //    rij = TensorMatDual(self.r.r[:, i:i+1, i+1:], self.r.d[:, i:i+1, i+1:])
+            //    xj = TensorDual(qtx.r[:, i+1:], qtx.d[:, i+1:])
+            //    sm = sm-rij*xj
+            if (i + 1 < D) {
+                TensorMatDual rij(r.r.index({Slice(), Slice(i, i + 1), Slice(i + 1)}),
+                                  r.d.index({Slice(), Slice(i, i + 1), Slice(i + 1)}));
+                TensorDual xj(qtx.r.index({Slice(), Slice(i + 1)}),
+                              qtx.d.index({Slice(), Slice(i + 1)}));
+                sm = sm - rij * xj;
+            }
+            //rii = TensorDual(self.r.r[:, i, i], self.r.d[:, i, i,:])
+            TensorDual rii(torch::unsqueeze(r.r.index({Slice(), i, i}), 1),
+                           torch::unsqueeze(r.d.index({Slice(), i, i}), 1));
+
+            //std::cerr << "sm: " << sm << std::endl;
+            //std::cerr << "rii: " << rii << std::endl;
+            auto smorii = sm/rii;
+            //std::cerr << "smorii: " << smorii << std::endl;
+            //std::cerr << "qtx: " << qtx << std::endl;
+            //use mask to find all element for which sm is zero
+            //auto mask = (sm > this->EPS);
+            //auto smorii = sm*0.0;
+            //Make sure there is no singularity
+            //auto smm = TensorDual(sm.r().index({mask}), sm.d().index({mask}));
+            //auto riim = TensorDual(rii.r().index({mask}), rii.d().index({mask}));
+            //auto smorrim = smm / riim;
+            //smorii.r().index_put_({mask}, smorrim.r());
+            //smorii.d().index_put_({mask}, smorrim.d());
+
+            //qtx.r[:, i] = smorii.r
+            //std::cerr << qtx.r.index({Slice(), Slice(i, i+1)}).sizes() << std::endl;
+            qtx.r.index_put_({Slice(), Slice(i, i+1)}, smorii.r);
+            //std::cerr << "qtx.r(): " << qtx.r << std::endl;
+            //qtx.d[:, i,:] = smorii.d
+            qtx.d.index_put_({Slice(), Slice(i, i+1), Slice()}, smorii.d);
+            //std::cerr << "qtx.d: " << qtx.d << std::endl;
+        }
+        return qtx;
+
+    }
 
 
 };
 
+    std::tuple<TensorMatDual, TensorMatDual> qrted(const TensorMatDual &a)
+    {
+        QRTeD qr(a);
+        return std::make_tuple(qr.qt, qr.r);
+    }
+
+    TensorDual qrtedsolvev(const TensorMatDual &qt, const TensorMatDual &r, const TensorDual &bin)
+    {
+        return QRTeD::solvev(qt, r, bin);
+    }
+
+} //namespace janus
 
 #endif

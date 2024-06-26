@@ -8,3 +8,11 @@ Solvers available currently are
    3.  GMRES
 
 This set of solvers are dependent on the project janus-dual which contains a libtorch dependent version of dual numbers. 
+
+Prerequisites to building this project:
+I.   Libtorch together with any pre-requisites for running on your hardware (e.g. CUDA or TPU drivers if onthe cloud).
+II.  Google test if you want to run the tests.
+III. janus-tensor-dual is the library needed to run the dual version of the linear solvers and its installation is required.
+
+TODO:
+GMRES is not yet implemented in dual number form.  This will be implemented for high dimensional examples.
