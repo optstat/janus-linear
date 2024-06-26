@@ -14,7 +14,7 @@ namespace janus
 
 
 
-    class QR
+    class QRT
     {
     public:
         int n, m;
@@ -24,7 +24,7 @@ namespace janus
         torch::Tensor scale, sm, tau, sigma, zero, Rkek, Qt_b, x;
         torch::Tensor qt_real, qt_imag, c_real, c_imag, d_real, d_imag;
 
-        QR(const torch::Tensor &a)
+        QRT(const torch::Tensor &a)
         {
             if ( a.isreal().all().item<bool>() ) {
                 if (a.isnan().any().item<bool>() || a.isinf().any().item<bool>())
@@ -57,11 +57,6 @@ namespace janus
             n = a.size(0);
             assert(a.size(0) == a.size(1));
             r = a.clone();
-            std::cerr << "r=";
-            print_matrix(r);
-            //Print the dimensions of r
-            std::cerr << "r.size(0)=" << r.size(0) << std::endl;
-            std::cerr << "r.size(1)=" << r.size(1) << std::endl;
             //check for nan or inf in a
             if (!isComplex)
             {
@@ -85,12 +80,9 @@ namespace janus
             {
                 scale = zero;
                 Rkek = r.index({Slice(k), k});
-                std::cerr << "Rkek=";
-                print_vector(Rkek);
                 //scale = max(abs(Rkek));
                 auto res = torch::max(Rkek.abs(), 0);
                 scale = std::get<0>(res);
-                std::cerr << "scale=" << scale << std::endl;
                 
                 auto scaled_r = r.index({Slice(k), k}) / scale;
                 r.index_put_({Slice(k), k}, scaled_r);
@@ -100,27 +92,16 @@ namespace janus
                 torch::Tensor sqrtsm = torch::sqrt(sm);
                 torch::Tensor rkk = r.index({k, k});
                 sigma = janus::signcond(sqrtsm, rkk);
-                std::cerr << "sigma=" << sigma << std::endl;
-                std::cerr << "r before index put=";
-                print_matrix(r);
                 r.index_put_({k, k}, r.index({k, k}) + sigma);
-                std::cerr << "r after index put=";
-                print_matrix(r);
                 c.index_put_({k}, sigma * r.index({k, k}));
                 assert ((c.index({k}).abs() > 0).item<bool>());
                 //d[k] = -scale*sigma;
                 d.index_put_({k}, -scale * sigma);
-                std::cerr << "c=";
-                print_vector(c);
-                std::cerr << "d=";
-                print_vector(d);
 
                 for (int j = k + 1; j < n; j++)
                 {
                     sm = torch::sum(r.index({Slice(k), k}) * r.index({Slice(k), j}));
                     tau = sm / c.index({k});
-                    std::cerr << "c at k=" << k << " =" << c.index({k}) << std::endl;
-                    std::cerr << "tau at k=" << k << " =" << tau << std::endl;
                     if (torch::isnan(tau).any().item<bool>() || torch::isinf(tau).any().item<bool>()) {
                         std::cerr << "tau=" << tau << std::endl;
                         throw std::runtime_error("tau has nan or inf");
@@ -129,8 +110,7 @@ namespace janus
                     auto ratk = r.index({Slice(k), k});
                     r.index_put_({Slice(k), j}, ratj - tau * ratk);
                 }
-                std::cerr << "r=";
-                print_matrix(r);
+                
             } // for k
 
             if (!isComplex)
@@ -154,8 +134,6 @@ namespace janus
                 d = at::complex(d_real, d_imag);
 
             }
-            std::cerr << "d=";
-            print_vector(d);
 
             if (!isComplex)
             {
@@ -186,15 +164,11 @@ namespace janus
                     }
                 }
             }
-            std::cerr << "qt=";
-            print_matrix(qt);
             for (int i=0;i<n;i++) {
 		      //r[i][i]=d[i];
               r.index_put_({i, i}, d[i]);
               r.index_put_({i, Slice(0, i)}, zero);
             }
-            std::cerr << "r=";
-            print_matrix(r);
 
             if ( !isComplex ) {
                 //check for nan or inf in qt
@@ -233,6 +207,43 @@ namespace janus
             return x.clone();
         }
 
-    }; // class QR
-};     // namespace janust
+        static torch::Tensor solvev(const torch::Tensor &qt, 
+                                    const torch::Tensor &r, 
+                                    const torch::Tensor &bin)
+        {
+            // qtx = self.qt*b
+            //In this formulation the Q matrix is already transposed
+            std::cerr << "qt=" << qt << std::endl;
+            std::cerr << "bin=" << bin << std::endl;
+            auto Qt_b = torch::einsum("ij,j->i", {qt, bin});
+            //We need to solve for R*x = QT*b backwards
+            auto x = torch::zeros_like(Qt_b);
+            int n = qt.size(0);
+            for (int i=n-1;i>-1; i--) {
+              x[i] = Qt_b[i];
+              auto sm = torch::sum(r.index({i, Slice(i+1, n)}) * x.index({Slice(i+1, n)}));
+              x[i] = x[i]-sm;
+
+
+              x[i] = x[i] / r[i][i];
+            }
+            //Return through copy elision
+            return x;
+        }
+
+    }; // class QRT
+
+    std::tuple<torch::Tensor, torch::Tensor> qrt(const torch::Tensor &a)
+    {
+        QRT qrt{a};
+        return std::make_tuple(qrt.qt, qrt.r);
+    }
+
+    torch::Tensor qrtsolvev(const torch::Tensor &qt, const torch::Tensor &r, const torch::Tensor &bin)
+    {
+        return QRT::solvev(qt, r, bin);
+    
+    }
+
+};     // namespace janus
 #endif // QR_HPP_INCLUDED

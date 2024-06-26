@@ -10,7 +10,7 @@ Solvers available currently are
 This set of solvers are dependent on the project janus-dual which contains a libtorch dependent version of dual numbers. 
 
 Prerequisites to building this project:
-I.   Libtorch together with any pre-requisites for running on your hardware (e.g. CUDA or TPU drivers if onthe cloud).
+I.   Libtorch together with any pre-requisites for running on your hardware (e.g. CUDA if you have a GPU card or TPU drivers if on the cloud.  Check with the pytorch/libtorch documentation for the hardware supported).
 II.  Google test if you want to run the tests.
 III. janus-tensor-dual is the library needed to run the dual version of the linear solvers and its installation is required.
 

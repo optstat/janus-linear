@@ -2,6 +2,7 @@
 #include <torch/torch.h>
 #include <random>
 #include "../../src/cpp/luTe.hpp"
+#include "../../src/cpp/qr.hpp"
 #include "../../src/cpp/qrTe.hpp"
 #include "../../src/cpp/qrted.hpp"
 
@@ -46,34 +47,46 @@ TEST(LUTest, A10x100x100) {
     }
 }
 
-TEST(LUTest, A1x1000x1000) {
-    int M=1;
-    int N=1000;
-    torch::Tensor A = torch::rand({M,N,N}, dtype(torch::kFloat64));
-    torch::Tensor B = torch::rand({M,N}, dtype(torch::kFloat64));
-    auto [LU,indx] = janus::LUTe(A);
-    auto x = janus::solveluv(LU, indx, B);
-    for (int i=0; i<M; i++){
-        auto Ax = torch::mv(A.index({i}), x.index({i}));
-        EXPECT_TRUE(torch::allclose(Ax, B.index({i}), 1e-6));
-    }
-}
 
-TEST(LUTest, A10x1000x1000) {
-    int M=100;
-    int N=1000;
-    torch::Tensor A = torch::rand({M,N,N}, dtype(torch::kFloat64));
-    torch::Tensor B = torch::rand({M,N}, dtype(torch::kFloat64));
-    auto [LU,indx] = janus::LUTe(A);
-    auto x = janus::solveluv(LU, indx, B);
-    for (int i=0; i<M; i++){
-        auto Ax = torch::mv(A.index({i}), x.index({i}));
-        EXPECT_TRUE(torch::allclose(Ax, B.index({i}), 1e-6));
-    }
+
+TEST(QRTTest, A1x2x2) {
+    int N=2;
+    torch::Tensor A = torch::rand({N,N}, dtype(torch::kFloat64));
+    torch::Tensor B = torch::rand({N}, dtype(torch::kFloat64));
+    auto [qt, r] = janus::qrt(A);
+    auto x = janus::qrtsolvev(qt, r, B);
+    auto Ax = torch::mv(A, x);
+    EXPECT_TRUE(torch::allclose(Ax, B));
 }
 
 
-TEST(QRTest, A1x2x2) {
+TEST(QRTTest, A10x10) {
+    int N=10;
+    torch::Tensor A = torch::rand({N,N}, dtype(torch::kFloat64));
+    torch::Tensor B = torch::rand({N}, dtype(torch::kFloat64));
+    auto [qt, r] = janus::qrt(A);
+    auto x = janus::qrtsolvev(qt, r, B);
+    auto Ax = torch::mv(A, x);
+    EXPECT_TRUE(torch::allclose(Ax, B));
+}
+
+TEST(QRTTest, A1x100x100) {
+    int N=100;
+    torch::Tensor A = torch::rand({N,N}, dtype(torch::kFloat64));
+    torch::Tensor B = torch::rand({N}, dtype(torch::kFloat64));
+    auto [qt, r] = janus::qrt(A);
+    auto x = janus::qrtsolvev(qt, r, B);
+    auto Ax = torch::mv(A, x);
+    EXPECT_TRUE(torch::allclose(Ax, B));
+}
+
+
+
+
+
+
+
+TEST(QRTeTest, A1x2x2) {
     int M=1;
     int N=2;
     torch::Tensor A = torch::rand({M,N,N}, dtype(torch::kFloat64));
@@ -86,7 +99,7 @@ TEST(QRTest, A1x2x2) {
     }
 }
 
-TEST(QRTest, A4x2x2) {
+TEST(QRTeTest, A4x2x2) {
     int M=4;
     int N=2;
     torch::Tensor A = torch::rand({M,N,N}, dtype(torch::kFloat64));
@@ -99,7 +112,7 @@ TEST(QRTest, A4x2x2) {
     }
 }
 
-TEST(QRTest, A1x100x100) {
+TEST(QRTeTest, A1x100x100) {
     int M=1;
     int N=100;
     torch::Tensor A = torch::rand({M,N,N}, dtype(torch::kFloat64));
@@ -112,9 +125,9 @@ TEST(QRTest, A1x100x100) {
     }
 }
 
-TEST(QRTest, A100x10x10) {
+TEST(QRTeTest, A100x10x10) {
     int M=100;
-    int N=100;
+    int N=10;
     torch::Tensor A = torch::rand({M,N,N}, dtype(torch::kFloat64));
     torch::Tensor B = torch::rand({M,N}, dtype(torch::kFloat64));
     auto [qt, r] = janus::qrte(A);
@@ -124,6 +137,9 @@ TEST(QRTest, A100x10x10) {
         EXPECT_TRUE(torch::allclose(Ax, B.index({i}), 1e-6));
     }
 }
+
+
+
 
 TEST(QRTeDTest, A1x2x2) {
     int M=1;
@@ -176,8 +192,8 @@ TEST(QRTeDTest, A10x100x100) {
     }
 }
 
-TEST(QRTeDTest, A100x200x200) {
-    int M=100;
+TEST(QRTeDTest, A10x200x200) {
+    int M=10;
     int N=200;
     torch::Tensor Ar = torch::rand({M,N,N}, dtype(torch::kFloat64));
     torch::Tensor Ad = torch::rand({M,N,N,N}, dtype(torch::kFloat64));

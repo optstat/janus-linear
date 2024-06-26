@@ -93,9 +93,10 @@ namespace janus
                 #endif
                 r.index_put_({Slice(), Slice(k), k}, r.index({Slice(), Slice(k), k})/ scale);
                 //for (sum=0.0,i=k;i<n;i++) sum += SQR(r[i][k]);
-                auto smsqrt= torch::sum(r.index({Slice(), Slice(k), k}).square(), 1).sqrt();
+                auto rsq = r.index({Slice(), Slice(k), k}).square();
+                auto smsqrt= torch::sum(rsq,1).sqrt();
                 //sigma=SIGN(sqrt(sum),r[k][k]);
-                r = flip_epsilon(r);
+                //r = flip_epsilon(r);
                 //The signcond statement is sensitive to numbers that are negative 
                 //even if they are very small so zero them out before calling signcond
                 sigma = signcond(smsqrt, r.index({Slice(), k, k}));
@@ -107,15 +108,15 @@ namespace janus
                 std::cerr << "sigma=";
                 janus::print_tensor(sigma);
                 #endif
-                
-                r.index_put_({Slice(), k, k}, r.index({Slice(), k, k}) + sigma);
+                //Avoid potential memory conflict
+                r.index_put_({Slice(), k, k}, r.index({Slice(), k, k}).clone() + sigma);
                 c.index_put_({Slice(), k}, sigma * r.index({Slice(), k, k}));
                 //d[k] = -scale*sigma;
                 #ifdef DEBUG
                 //std::cerr << "sigma=";
                 //janus::print_tensor(sigma);
                 #endif
-                d.index_put_({Slice(), k}, scale.squeeze(1)*sigma);
+                d.index_put_({Slice(), k}, -scale.squeeze(1)*sigma);
                 #ifdef DEBUG
                 std::cerr <<"At the end of outer loop k=" << k << std::endl;
                 std::cerr << "d=";

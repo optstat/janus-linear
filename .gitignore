@@ -1,4 +1,6 @@
 #Ignore ide directories
 .history
 .lh
+.vscode/
 .vscodebuild/
+build/
