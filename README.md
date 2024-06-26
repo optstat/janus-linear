@@ -7,7 +7,7 @@ Solvers available currently are
    2.  QR decomposition
    3.  GMRES
 
-This set of solvers are dependent on the project janus-dual which contains a libtorch dependent version of dual numbers. 
+This set of solvers are dependent on the project janus-tensor-dual which contains a libtorch dependent version of dual numbers. 
 
 Prerequisites to building this project:
 I.   Libtorch together with any pre-requisites for running on your hardware (e.g. CUDA if you have a GPU card or TPU drivers if on the cloud.  Check with the pytorch/libtorch documentation for the hardware supported).
