@@ -1,9 +1,9 @@
 #include <gtest/gtest.h>
 #include <torch/torch.h>
 #include <random>
-#include "../../src/cpp/luTe.hpp"
+#include "../../src/cpp/lute.hpp"
 #include "../../src/cpp/qr.hpp"
-#include "../../src/cpp/qrTe.hpp"
+#include "../../src/cpp/qrte.hpp"
 #include "../../src/cpp/qrted.hpp"
 
 TEST(LUTest, A1x2x2) {
