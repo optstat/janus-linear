@@ -1,9 +1,9 @@
-#ifndef QR_HPP_INCLUDED
-#define QR_HPP_INCLUDED
+#ifndef QRTEDC_HPP_INCLUDED
+#define QRTEDC_HPP_INCLUDED
 
 #include <torch/torch.h>
-#include "tensordual.hpp"
-#include "janus_util.hpp"
+#include <janus/tensordual.hpp>
+#include <janus/janus_util.hpp>
 
 namespace janus
 {
@@ -87,7 +87,8 @@ namespace janus
                 //sigma=SIGN(sqrt(sum),r[k][k]);
                 //sigma is a real number NOT COMPLEX of dimension M
                 sigma = signcond(sum.sqrt(), r.index({Slice(), Slice(k, k+1), Slice(k, k+1)}).squeeze());
-                r.index_put_({Slice(), Slice(k,k+1), Slice(k,k+1)}, r.index({Slice(), Slice(k, k+1), Slice(k, k+1)}) + sigma);
+                auto rpsigma = r.index({Slice(), Slice(k, k+1), Slice(k, k+1)}) + sigma.unsqueeze(2);
+                r.index_put_({Slice(), Slice(k,k+1), Slice(k,k+1)}, rpsigma);
                 auto sigmar =  sigma * r.index({Slice(), Slice(k, k+1), Slice(k, k+1)});
                 //This is a bug in pytorch.  index_put_ should not reduce the slice dimensions
                 c.index_put_({Slice(), Slice(k, k+1)}, sigmar);
@@ -177,7 +178,7 @@ namespace janus
         /*
         Use the user provided Q^T and R matrices to solve for the linear system of equations
         */
-        static TensorDual solvev(const TensorMatDual& qt, const TensorMatDual &r,  TensorDual &bin)
+        static TensorDual solvev(const TensorMatDual &qt, const TensorMatDual &r, TensorDual &bin)
         {
             // qtx = self.qt*b
             //In this formulation the Q matrix is already transposed
@@ -204,6 +205,21 @@ namespace janus
         }
 
 
+
+
     }; // class QR
-};     // namespace janust
+
+    std::tuple<TensorMatDual, TensorMatDual> qrtedc(const TensorMatDual &a)
+    {
+        QRTeDC qr(a);
+        return std::make_tuple(qr.qt, qr.r);
+    }
+
+    TensorDual qrtedcsolvev(const TensorMatDual &qt, const TensorMatDual &r, const TensorDual &bin)
+    {
+        auto binc = bin.clone();
+        return QRTeDC::solvev(qt, r, binc);
+    }
+
+}     // namespace janus
 #endif // QR_HPP_INCLUDED

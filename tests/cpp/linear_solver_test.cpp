@@ -5,6 +5,8 @@
 #include "../../src/cpp/qr.hpp"
 #include "../../src/cpp/qrte.hpp"
 #include "../../src/cpp/qrted.hpp"
+#include "../../src/cpp/qrtedc.hpp"
+
 
 TEST(LUTest, A1x2x2) {
     int M=1;
@@ -158,56 +160,116 @@ TEST(QRTeDTest, A1x2x2) {
     }
 }
 
-TEST(QRTeDTest, A10x2x2) {
-    int M=10;
+
+TEST(QRTeDTest, A1x4x4) {
+    int M=1;
+    int N=4;
+    torch::Tensor Ar = torch::rand({M,N,N}, dtype(torch::kFloat64));
+    torch::Tensor Ad = torch::rand({M,N,N,N}, dtype(torch::kFloat64));
+    torch::Tensor Br = torch::rand({M,N}, dtype(torch::kFloat64));
+    torch::Tensor Bd = torch::rand({M,N,N}, dtype(torch::kFloat64));
+    TensorMatDual A(Ar, Ad);
+    TensorDual B(Br, Bd);
+    auto [qt, r] = janus::qrted(A);
+    auto x = janus::qrtedsolvev(qt, r, B);
+    auto Ax = TensorMatDual::einsum("mij, mj->mi", A, x);
+    for (int i=0; i<M; i++){
+        EXPECT_TRUE(torch::allclose(Ax.r.index({i}), B.r.index({i})));
+    }
+}
+
+TEST(QRTeDCTest, A1x2x2) {
+    int M=1;
     int N=2;
-    torch::Tensor Ar = torch::rand({M,N,N}, dtype(torch::kFloat64));
-    torch::Tensor Ad = torch::rand({M,N,N,N}, dtype(torch::kFloat64));
-    torch::Tensor Br = torch::rand({M,N}, dtype(torch::kFloat64));
-    torch::Tensor Bd = torch::rand({M,N,N}, dtype(torch::kFloat64));
+    torch::Tensor Ar = torch::complex(torch::rand({M,N,N}, dtype(torch::kFloat64)),
+                                      torch::rand({M,N,N}, dtype(torch::kFloat64)));
+    torch::Tensor Ad = torch::complex(torch::rand({M,N,N,N}, dtype(torch::kFloat64)),
+                                      torch::rand({M,N,N,N}, dtype(torch::kFloat64)));    
+    torch::Tensor Br = torch::complex(torch::rand({M,N}, dtype(torch::kFloat64)),
+                                      torch::rand({M,N}, dtype(torch::kFloat64)));
+    torch::Tensor Bd = torch::complex(torch::rand({M,N,N}, dtype(torch::kFloat64)),
+                                        torch::rand({M,N,N}, dtype(torch::kFloat64)));   
     TensorMatDual A(Ar, Ad);
     TensorDual B(Br, Bd);
-    auto [qt, r] = janus::qrted(A);
-    auto x = janus::qrtedsolvev(qt, r, B);
+    auto [qt, r] = janus::qrtedc(A);
+    auto x = janus::qrtedcsolvev(qt, r, B);
     auto Ax = TensorMatDual::einsum("mij, mj->mi", A, x);
     for (int i=0; i<M; i++){
-        EXPECT_TRUE(torch::allclose(Ax.r.index({i}), B.r.index({i})));
+        EXPECT_TRUE(torch::allclose(torch::real(Ax.r.index({i})), torch::real(B.r.index({i}))));
+        EXPECT_TRUE(torch::allclose(torch::imag(Ax.r.index({i})), torch::imag(B.r.index({i}))));
     }
 }
 
-TEST(QRTeDTest, A10x100x100) {
-    int M=10;
+TEST(QRTeDCTest, A1x100x100) {
+    int M=1;
     int N=100;
-    torch::Tensor Ar = torch::rand({M,N,N}, dtype(torch::kFloat64));
-    torch::Tensor Ad = torch::rand({M,N,N,N}, dtype(torch::kFloat64));
-    torch::Tensor Br = torch::rand({M,N}, dtype(torch::kFloat64));
-    torch::Tensor Bd = torch::rand({M,N,N}, dtype(torch::kFloat64));
+    torch::Tensor Ar = torch::complex(torch::rand({M,N,N}, dtype(torch::kFloat64)),
+                                      torch::rand({M,N,N}, dtype(torch::kFloat64)));
+    torch::Tensor Ad = torch::complex(torch::rand({M,N,N,N}, dtype(torch::kFloat64)),
+                                      torch::rand({M,N,N,N}, dtype(torch::kFloat64)));    
+    torch::Tensor Br = torch::complex(torch::rand({M,N}, dtype(torch::kFloat64)),
+                                      torch::rand({M,N}, dtype(torch::kFloat64)));
+    torch::Tensor Bd = torch::complex(torch::rand({M,N,N}, dtype(torch::kFloat64)),
+                                        torch::rand({M,N,N}, dtype(torch::kFloat64)));   
     TensorMatDual A(Ar, Ad);
     TensorDual B(Br, Bd);
-    auto [qt, r] = janus::qrted(A);
-    auto x = janus::qrtedsolvev(qt, r, B);
+    auto [qt, r] = janus::qrtedc(A);
+    auto x = janus::qrtedcsolvev(qt, r, B);
     auto Ax = TensorMatDual::einsum("mij, mj->mi", A, x);
     for (int i=0; i<M; i++){
-        EXPECT_TRUE(torch::allclose(Ax.r.index({i}), B.r.index({i})));
+        EXPECT_TRUE(torch::allclose(torch::real(Ax.r.index({i})), torch::real(B.r.index({i}))));
+        EXPECT_TRUE(torch::allclose(torch::imag(Ax.r.index({i})), torch::imag(B.r.index({i}))));
     }
 }
 
-TEST(QRTeDTest, A10x200x200) {
-    int M=10;
-    int N=200;
-    torch::Tensor Ar = torch::rand({M,N,N}, dtype(torch::kFloat64));
-    torch::Tensor Ad = torch::rand({M,N,N,N}, dtype(torch::kFloat64));
-    torch::Tensor Br = torch::rand({M,N}, dtype(torch::kFloat64));
-    torch::Tensor Bd = torch::rand({M,N,N}, dtype(torch::kFloat64));
+
+TEST(QRTeDCTest, A2x2x2) {
+    int M=2;
+    int N=2;
+    torch::Tensor Ar = torch::complex(torch::rand({M,N,N}, dtype(torch::kFloat64)),
+                                      torch::rand({M,N,N}, dtype(torch::kFloat64)));
+    torch::Tensor Ad = torch::complex(torch::rand({M,N,N,N}, dtype(torch::kFloat64)),
+                                      torch::rand({M,N,N,N}, dtype(torch::kFloat64)));    
+    torch::Tensor Br = torch::complex(torch::rand({M,N}, dtype(torch::kFloat64)),
+                                      torch::rand({M,N}, dtype(torch::kFloat64)));
+    torch::Tensor Bd = torch::complex(torch::rand({M,N,N}, dtype(torch::kFloat64)),
+                                        torch::rand({M,N,N}, dtype(torch::kFloat64)));   
     TensorMatDual A(Ar, Ad);
     TensorDual B(Br, Bd);
-    auto [qt, r] = janus::qrted(A);
-    auto x = janus::qrtedsolvev(qt, r, B);
+    auto [qt, r] = janus::qrtedc(A);
+    auto x = janus::qrtedcsolvev(qt, r, B);
     auto Ax = TensorMatDual::einsum("mij, mj->mi", A, x);
     for (int i=0; i<M; i++){
-        EXPECT_TRUE(torch::allclose(Ax.r.index({i}), B.r.index({i})));
+        EXPECT_TRUE(torch::allclose(torch::real(Ax.r.index({i})), torch::real(B.r.index({i}))));
+        EXPECT_TRUE(torch::allclose(torch::imag(Ax.r.index({i})), torch::imag(B.r.index({i}))));
     }
 }
+
+TEST(QRTeDCTest, A100x100x100) {
+    int M=100;
+    int N=100;
+    torch::Tensor Ar = torch::complex(torch::rand({M,N,N}, dtype(torch::kFloat64)),
+                                      torch::rand({M,N,N}, dtype(torch::kFloat64)));
+    torch::Tensor Ad = torch::complex(torch::rand({M,N,N,N}, dtype(torch::kFloat64)),
+                                      torch::rand({M,N,N,N}, dtype(torch::kFloat64)));    
+    torch::Tensor Br = torch::complex(torch::rand({M,N}, dtype(torch::kFloat64)),
+                                      torch::rand({M,N}, dtype(torch::kFloat64)));
+    torch::Tensor Bd = torch::complex(torch::rand({M,N,N}, dtype(torch::kFloat64)),
+                                        torch::rand({M,N,N}, dtype(torch::kFloat64)));   
+    TensorMatDual A(Ar, Ad);
+    TensorDual B(Br, Bd);
+    auto [qt, r] = janus::qrtedc(A);
+    auto x = janus::qrtedcsolvev(qt, r, B);
+    auto Ax = TensorMatDual::einsum("mij, mj->mi", A, x);
+    for (int i=0; i<M; i++){
+        EXPECT_TRUE(torch::allclose(torch::real(Ax.r.index({i})), torch::real(B.r.index({i}))));
+        EXPECT_TRUE(torch::allclose(torch::imag(Ax.r.index({i})), torch::imag(B.r.index({i}))));
+    }
+}
+
+
+
+
 
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
