@@ -34,6 +34,8 @@ namespace janus
             //is the dimension of the dual number and N is the dimension of the dual number
 
             this->a = a.clone(); // copy of the original matrix
+            auto options = torch::TensorOptions().dtype(torch::kDouble).device(a.device());
+
             auto zeroc = torch::complex(torch::zeros({M, 1}, torch::TensorOptions().dtype(torch::kDouble).device(a.device())), 
                                   torch::zeros({M, 1}, torch::TensorOptions().dtype(torch::kDouble).device(a.device())));
      	    auto onec = torch::complex(torch::ones({M, 1}, torch::TensorOptions().dtype(torch::kDouble).device(a.device())), 
@@ -75,11 +77,13 @@ namespace janus
 
 
                 //r.index_put_({Slice(), Slice(k), k}, r.index({Slice(), Slice(k), k})*scale.reciprocal());
-                for ( int i=k; i < n; i++)
+                /*for ( int i=k; i < n; i++)
                 {
                     auto ros = r.index({Slice(), Slice(i, i+1), Slice(k, k+1)}) / scale;
                     r.index_put_({Slice(), Slice(i,i+1), Slice(k,k+1)}, ros); 
-                }
+                }*/
+                auto ros = r.index({Slice(), Slice(k, n), Slice(k, k+1)}) / scale;
+                r.index_put_({Slice(), Slice(k, n), Slice(k, k+1)}, ros);
                 //for (sum=0.0,i=k;i<n;i++) sum += SQR(r[i][k]);
                 //sum = torch::sum(r.index({Slice(), Slice(k), k}).square(), 1);
                 auto sum = r.index({Slice(), Slice(k), Slice(k, k+1)}).square().sum(1).squeeze();
@@ -126,13 +130,17 @@ namespace janus
                 qt.index_put_({Slice(), Slice(i,i+1), Slice(i,i+1)}, one.unsqueeze(2));
 	        }
 
-
+            //Original code
+            /////////////////////////////////////////
             for ( int k=0; k < n-1; k++)
             {
+                auto r_k = r.index({Slice(), Slice(k), Slice(k, k+1)}).squeeze(2);  // Common slice of r for this iteration
+                auto c_k = c.index({Slice(), Slice(k, k+1)});    // Reciprocal of c for current k
+
                 for ( int j=0; j < n; j++)
                 {
-                    auto sum = (r.index({Slice(), Slice(k), Slice(k, k+1)}).squeeze(2)* qt.index({Slice(), Slice(k), Slice(j, j+1)}).squeeze(2)).sum();
-                    sum.index_put_( Slice(), sum * c.index({Slice(), Slice(k, k+1)}).reciprocal());
+                    auto sum = (r_k* qt.index({Slice(), Slice(k), Slice(j, j+1)}).squeeze(2)).sum();
+                    sum.index_put_( Slice(), sum/c_k);
                     //for ( int i=k; i < n; i++)
                     //{
                     //    qt.index_put_({Slice(), i, j}, qt.index({Slice(), i, j}) - sum * r.index({Slice(), i, k}));
@@ -142,6 +150,8 @@ namespace janus
    
                 }
             }
+
+
             for ( int i=0; i < n; i++ )
             {
               r.index_put_({Slice(), Slice(i,i+1), Slice(i,i+1)}, TensorMatDual::unsqueeze(d.index({Slice(), Slice(i, i+1)}), 1));
