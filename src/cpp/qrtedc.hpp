@@ -176,11 +176,14 @@ namespace janus
               auto sm = (r.index({Slice(), Slice(i, i+1), Slice(i+1, n)}) * x.index({Slice(), Slice(i+1, n)})).sum();
               x.index_put_({Slice(), Slice(i, i+1)}, x.index({Slice(), Slice(i, i+1)})-sm);
               //If x[i] is zero, set the value to zero
-              if ((x.index({Slice(), Slice(i, i+1)}) == 0.0).all().item<bool>()) {
+              auto m = x.index({Slice(), Slice(i, i+1)}) == 0.0;
+              x.index_put_({m, Slice(i, i+1)}, 0.0);
+              x.index_put_({~m, Slice(i, i+1)}, x.index({Slice(), Slice(i, i+1)}) / r.index({Slice(), Slice(i, i+1), Slice(i, i+1)}).squeeze());
+              /*if ((x.index({Slice(), Slice(i, i+1)}) == 0.0).all().item<bool>()) {
                   x.index_put_({Slice(), Slice(i, i+1)}, 0.0);
               } else {
                   x.index_put_({Slice(), Slice(i, i+1)}, x.index({Slice(), Slice(i, i+1)}) / r.index({Slice(), Slice(i, i+1), Slice(i, i+1)}).squeeze());
-              }
+              }*/
             }
             return x.real(); //Remove the complex part
         }
