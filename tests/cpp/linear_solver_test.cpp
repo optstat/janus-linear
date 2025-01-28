@@ -7,6 +7,7 @@
 #include "../../src/cpp/qrted.hpp"
 #include "../../src/cpp/qrtedc.hpp"
 #include "../../src/cpp/gmressolver.hpp"
+#include "../../src/cpp/gmressolverfloat.hpp"
 
 
 TEST(LUTest, A1x2x2) {
@@ -408,6 +409,33 @@ TEST(GMRESSolverTest, SolveKnownSystemExactCheck)
 
     // Compare with the known exact solution
     expectTensorsClose(x, x_expected, 1e-12);
+}
+
+//Generate a test with a random matrix and vector the matrix should be 100 by 100
+TEST(GMRESSolverTest, RandomMatrix100x100)
+{
+    if (!torch::cuda::is_available()) {
+        GTEST_SKIP() << "CUDA is not available. Skipping GPU test.";
+    }
+
+    // Matrix A on CPU  
+    torch::Tensor A = torch::rand({100,100}, torch::kFloat64).cuda();
+    torch::Tensor b = torch::rand({100}, torch::kFloat64).cuda();
+
+    GMRESSolver solver;
+    solver.initialize(A);
+
+    torch::Tensor x = solver.solve(b);  // output on GPU
+    ASSERT_EQ(x.device().type(), torch::kCUDA)
+        << "Solution should be a CUDA tensor";
+
+    // (Optional) Check residual A*x - b < tolerance
+    // We'll copy A to GPU for quick matmul check in torch:
+    torch::Tensor A_gpu = A.cuda();
+    torch::Tensor r = torch::matmul(A_gpu, x) - b;
+    double norm_r = r.norm().item<float>();
+    EXPECT_NEAR(norm_r, 0.0, 1e-5) 
+            << "Residual is too high.";
 }
 
 
