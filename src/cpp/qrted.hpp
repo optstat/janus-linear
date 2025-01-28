@@ -103,7 +103,9 @@ public:
             TensorMatDual Rkej(r.r.index({Slice(), Slice(k), Slice(k+1)}),
                                r.d.index({Slice(), Slice(k), Slice(k+1)}));
             sm = Rkek * Rkej;
+            std::cerr << "sm: " << sm << std::endl;
             auto tau = sm / ck;
+            std::cerr << "tau: " << tau << std::endl;
 
             auto Rkejn = Rkej - ger(tau, Rkek);  // Assuming ger is a static method of TensorDual
             r.r.index_put_({Slice(), Slice(k), Slice(k + 1)}, Rkejn.r);
@@ -234,9 +236,9 @@ public:
                            torch::unsqueeze(r.d.index({Slice(), i, i}), 1));
 
             //std::cerr << "sm: " << sm << std::endl;
-            //std::cerr << "rii: " << rii << std::endl;
+            std::cerr << "rii: " << rii << std::endl;
             auto smorii = sm/rii;
-            //std::cerr << "smorii: " << smorii << std::endl;
+            std::cerr << "smorii: " << smorii << std::endl;
             //std::cerr << "qtx: " << qtx << std::endl;
             //use mask to find all element for which sm is zero
             //auto mask = (sm > this->EPS);

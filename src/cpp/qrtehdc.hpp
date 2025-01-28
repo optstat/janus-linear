@@ -12,19 +12,19 @@ namespace janus
 
 
     /**
-     * Class generates QR decomposition of a Dual complex tensor across multiple samples in a vectorized form
+     * Class generates QR decomposition of a Hyper Dual complex tensor across multiple samples in a vectorized form
     */
-    class QRTeDC
+    class QRTeHDC
     {
     public:
         int M, n, nd;
         bool isComplex = true;
         bool sing = false;
-        TensorMatDual a, r, qt;
-        TensorDual c, d;
-        TensorDual scale, sm, tau, sigma, zero, one, Rkek, Qt_b, x;
+        TensorMatHyperDual a, r, qt;
+        TensorHyperDual c, d;
+        TensorHyperDual scale, sm, tau, sigma, zero, one, Rkek, Qt_b, x;
 
-        QRTeDC(const TensorMatDual &a)
+        QRTeHDC(const TensorMatHyperDual &a)
         {
             M = a.r.size(0); //Batch dimension
             n = a.r.size(1);
@@ -43,23 +43,23 @@ namespace janus
 
 
 
-            zero = TensorDual(zeroc.clone(), zeroc.unsqueeze(-1).repeat({1,1,nd}));
-            one = TensorDual(onec.clone(), zeroc.unsqueeze(-1).repeat({1,1,nd}));
+            zero = TensorHyperDual(zeroc.clone(), zeroc.unsqueeze(-1).repeat({1,1,nd}), zeroc.unsqueeze(-1).repeat({1,1,nd, nd}));
+            one = TensorHyperDual(onec.clone(), zeroc.unsqueeze(-1).repeat({1,1,nd}), zeroc.unsqueeze(-1).repeat({1,1,nd, nd}));
             r = a.clone(); //Make a deep copy
             auto qt_real = torch::zeros({M, n, n}, torch::kDouble).to(a.device());
             auto qt_imag = torch::zeros({M, n, n}, torch::kDouble).to(a.device());
             auto qtc = torch::complex(qt_real, qt_imag).to(torch::kComplexDouble);
-            qt = TensorMatDual(qtc, qtc.unsqueeze(-1).repeat({1,1,1,nd})); 
+            qt = TensorMatHyperDual(qtc, qtc.unsqueeze(-1).repeat({1,1,1,nd}), qtc.unsqueeze(-1).repeat({1,1,1,nd, nd})); 
             auto c_real = torch::zeros({M, n}, torch::kDouble).to(a.device());
             auto c_imag = torch::zeros({M, n}, torch::kDouble).to(a.device());
             auto cc = torch::complex(c_real, c_imag).to(torch::kComplexDouble);
-            c = TensorDual(cc.clone(), cc.unsqueeze(-1).repeat({1,1,nd}));
+            c = TensorHyperDual(cc.clone(), cc.unsqueeze(-1).repeat({1,1,nd}), cc.unsqueeze(-1).repeat({1,1,nd, nd}));
             
             auto d_real = torch::zeros({M, n}, torch::kDouble).to(a.device());
             auto d_imag = torch::zeros({M, n}, torch::kDouble).to(a.device());
             auto dc = torch::complex(d_real, d_imag).to(torch::kComplexDouble);
 
-            d = TensorDual(dc.clone(), dc.unsqueeze(-1).repeat({1,1,nd}));
+            d = TensorHyperDual(dc.clone(), dc.unsqueeze(-1).repeat({1,1,nd}), dc.unsqueeze(-1).repeat({1,1,nd, nd}));
             for (int k = 0; k < n - 1; k++)
             {
                 //scale = torch::amax(torch::abs(r.index({Slice(), Slice(k), k})), 1);
@@ -83,29 +83,21 @@ namespace janus
                     r.index_put_({Slice(), Slice(i,i+1), Slice(k,k+1)}, ros); 
                 }*/
                 auto ros = r.index({Slice(), Slice(k, n), Slice(k, k+1)}) / scale;
-                std::cerr << "ros.r sizes = " << ros.r.sizes() << std::endl;
                 r.index_put_({Slice(), Slice(k, n), Slice(k, k+1)}, ros);
-                std::cerr << "r.r sizes = " << r.r.sizes() << std::endl;
-
                 //for (sum=0.0,i=k;i<n;i++) sum += SQR(r[i][k]);
                 //sum = torch::sum(r.index({Slice(), Slice(k), k}).square(), 1);
-                std::cerr << "Before sum invocation" << std::endl;
-                auto sum = r.index({Slice(), Slice(k), Slice(k, k+1)}).square().sum(1).squeeze(1);
-                std::cerr << "sum sizes = " << sum.r.sizes() << std::endl;
+                auto sum = r.index({Slice(), Slice(k), Slice(k, k+1)}).square().sum(1).squeeze();
+  
                 //sigma=SIGN(sqrt(sum),r[k][k]);
                 //sigma is a real number NOT COMPLEX of dimension M
-                sigma = signcond(sum.sqrt(), r.index({Slice(), Slice(k, k+1), Slice(k, k+1)}).squeeze(1));
-                std::cerr << "sigma sizes = " << sigma.r.sizes() << std::endl;
+                sigma = signcond(sum.sqrt(), r.index({Slice(), Slice(k, k+1), Slice(k, k+1)}).squeeze());
                 auto rpsigma = r.index({Slice(), Slice(k, k+1), Slice(k, k+1)}) + sigma.unsqueeze(2);
                 r.index_put_({Slice(), Slice(k,k+1), Slice(k,k+1)}, rpsigma);
                 auto sigmar =  sigma * r.index({Slice(), Slice(k, k+1), Slice(k, k+1)});
-                std::cerr << "sigmar sizes = " << sigmar.r.sizes() << std::endl;
                 //This is a bug in pytorch.  index_put_ should not reduce the slice dimensions
                 c.index_put_({Slice(), Slice(k, k+1)}, sigmar);
                 auto scales = -scale * sigma;
-                std::cerr << "scales sizes = " << scales.r.sizes() << std::endl;
                 d.index_put_({Slice(), Slice(k, k+1)}, scales);
-                std::cerr << "d sizes = " << d.r.sizes() << std::endl;
                 //sigma=SIGN(sqrt(sum),r[k][k]);
                 //sigma = signcondc(sum_sq.sqrt(), r.index({Slice(), k, k}));
                 //r.index_put_({Slice(), k, k}, r.index({Slice(), k, k}) + sigma);
@@ -116,15 +108,13 @@ namespace janus
 
                 for (int j = k + 1; j < n; j++)
                 {
-                    sum = (r.index({Slice(), Slice(k), Slice(k, k+1)}) * r.index({Slice(), Slice(k), Slice(j, j+1)})).sum(1).squeeze(1);
+                    sum = (r.index({Slice(), Slice(k), Slice(k, k+1)}).squeeze() * r.index({Slice(), Slice(k), Slice(j, j+1)}).squeeze()).sum();
                     //This has the dimensions of batch size M
                     //auto tau = sum / c.index({Slice(), k});
                     //r.index_put_({Slice(), Slice(k), j}, r.index({Slice(), Slice(k), j}) - torch::einsum("m, mi->mi",{tau , r.index({Slice(), Slice(k), k})}));
-                    std::cerr << "sum sizes = " << sum.r.sizes() << std::endl;
+
                     auto tau = sum / c.index({Slice(), Slice(k, k+1)});
-                    std::cerr << "tau sizes = " << tau.r.sizes() << std::endl;
-                    auto tauTr = TensorMatDual::einsum("mi, mji->mj",tau , r.index({Slice(), Slice(k), Slice(k, k+1)}));
-                    std::cerr << "tauTr sizes = " << tauTr.r.sizes() << std::endl;
+                    auto tauTr = TensorMatDual::einsum("mi, mji->mji",tau , r.index({Slice(), Slice(k), Slice(k, k+1)}));
                     r.index_put_({Slice(), Slice(k), Slice(j,j+1)}, r.index({Slice(), Slice(k), Slice(j, j+1)}) - tauTr);
                 }
 
@@ -132,7 +122,7 @@ namespace janus
 
 
 
-            d.index_put_({Slice(), Slice(n-1, n)}, r.index({Slice(), Slice(n-1, n), Slice(n-1, n)}).squeeze(1));
+            d.index_put_({Slice(), Slice(n-1, n)}, r.index({Slice(), Slice(n-1, n), Slice(n-1, n)}).squeeze());
             // Recombine the updated real and imaginary part
             for (int i=0;i<n;i++) 
             {
@@ -188,7 +178,7 @@ namespace janus
               //If x[i] is zero, set the value to zero
               auto m = x.index({Slice(), Slice(i, i+1)}) == 0.0;
               x.index_put_({m, Slice(i, i+1)}, 0.0);
-              x.index_put_({~m, Slice(i, i+1)}, x.index({Slice(), Slice(i, i+1)}) / r.index({Slice(), Slice(i, i+1), Slice(i, i+1)}).squeeze(1));
+              x.index_put_({~m, Slice(i, i+1)}, x.index({Slice(), Slice(i, i+1)}) / r.index({Slice(), Slice(i, i+1), Slice(i, i+1)}).squeeze());
               /*if ((x.index({Slice(), Slice(i, i+1)}) == 0.0).all().item<bool>()) {
                   x.index_put_({Slice(), Slice(i, i+1)}, 0.0);
               } else {
